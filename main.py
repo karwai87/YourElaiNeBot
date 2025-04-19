@@ -9,15 +9,15 @@ import aiohttp
 
 load_dotenv()
 BOT_TOKEN = os.getenv("BOT_TOKEN")
-ALLOWED_USER_IDS = {5366904723}
+ALLOWED_USER_IDS = {5366904723}  # 你的 Telegram ID
 
 bot = Bot(token=BOT_TOKEN)
 scheduler = AsyncIOScheduler()
 
-# 存储用户最后请求时间，防止卡顿重复指令
+# 节流控制（10秒）
 last_command_time = {}
 
-# Prompt 队列（轮播）
+# Prompt 轮播
 PROMPT_LIST = [
     "a soft portrait of a slender East Asian girl in a silver qipao sitting on a sofa, natural light, soft focus, pure girlfriend style",
     "a girl with long hair wearing a white dress sitting under window light, soft background, romantic tone",
@@ -27,9 +27,8 @@ PROMPT_LIST = [
 ]
 prompt_index = 0
 
-# 图像生成模拟（这里后续可接 Mage 或 OpenAI）
+# 模拟图像生成函数
 async def generate_image(prompt_text):
-    # 模拟：下载 placeholder 图片作为示意
     url = "https://picsum.photos/600/800"
     filename = "妃妃_{}.jpg".format(datetime.now().strftime('%Y%m%d'))
     async with aiohttp.ClientSession() as session:
@@ -41,7 +40,6 @@ async def generate_image(prompt_text):
                 return filename
     return None
 
-# 指令节流器（10秒内不重复）
 def is_fast_repeat(user_id, command_name):
     now = datetime.now()
     if user_id not in last_command_time:
@@ -52,14 +50,14 @@ def is_fast_repeat(user_id, command_name):
     last_command_time[user_id][command_name] = now
     return False
 
-# /妃妃图 或 /图片
+# 主图发送函数
 async def send_feifei(update, context):
     if update.effective_user.id not in ALLOWED_USER_IDS:
-        await update.message.reply_text("你无权使用此 bot")
         return
     if is_fast_repeat(update.effective_user.id, '妃妃图'):
-        await update.message.reply_text("稍等一下再点喔～")
+        await update.message.reply_text("慢一点啦～稍后再点 🕒")
         return
+
     global prompt_index
     prompt = PROMPT_LIST[prompt_index]
     prompt_index = (prompt_index + 1) % len(PROMPT_LIST)
@@ -69,9 +67,9 @@ async def send_feifei(update, context):
             await bot.send_photo(chat_id=update.effective_chat.id, photo=photo,
                                  caption="晚安，这是妃妃今天的模样")
     else:
-        await update.message.reply_text("图像生成失败了，明天我会补上。")
+        await update.message.reply_text("图像生成失败，明天我补上 💔")
 
-# 定时任务
+# 定时任务发送
 async def scheduled_feifei():
     global prompt_index
     prompt = PROMPT_LIST[prompt_index]
@@ -84,15 +82,27 @@ async def scheduled_feifei():
     else:
         print("定时妃妃图生成失败")
 
+# 中文触发器
+async def check_chinese_request(update, context):
+    text = update.message.text.strip()
+    if update.effective_user.id in ALLOWED_USER_IDS:
+        if text in ["妃妃图", "图片"]:
+            await send_feifei(update, context)
+
+# 启动
 def main():
     app = Application.builder().token(BOT_TOKEN).build()
-    app.add_handler(CommandHandler(["妃妃图", "图片"], send_feifei))
 
-    # 定时任务每天 23:00
+    # 英文命令支持
+    app.add_handler(CommandHandler(["feifei", "pic"], send_feifei))
+
+    # 中文关键词识别
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, check_chinese_request))
+
     scheduler.add_job(scheduled_feifei, 'cron', hour=23, minute=0)
     scheduler.start()
 
-    print("AI妃妃图系统运行中...")
+    print("AI妃启动中...")
     app.run_polling()
 
 if __name__ == "__main__":
