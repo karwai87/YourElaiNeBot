@@ -3,3 +3,5 @@ matplotlib
 python-dotenv
 aiohttp
 apscheduler
+openai
+requests
