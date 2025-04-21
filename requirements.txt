@@ -1,5 +1,4 @@
 python-telegram-bot==20.6
-matplotlib
 python-dotenv
 aiohttp
 apscheduler
