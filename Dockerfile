@@ -11,4 +11,4 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
 
 # 默认启动命令
-CMD ["python", "main.py"]
+CMD ["python", "bot.py"]
